@@ -1,0 +1,16 @@
+Django>=5.0
+djangorestframework
+pandas
+numpy
+celery
+redis
+psycopg2-binary
+haversine
+drf-spectacular
+djangorestframework-simplejwt
+gunicorn
+python-dotenv
+ipython
+pytest
+pytest-django
+pyotp

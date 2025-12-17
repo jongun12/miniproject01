@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=hello_django
+      - POSTGRES_PASSWORD=hello_django
+      - POSTGRES_DB=hello_django_dev
+
+  redis:
+    image: redis:7-alpine
+
+  celery:
+    build: .
+    command: celery -A core worker -l info
+    volumes:
+      - ./:/app
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+      - redis
+    # Condition to ensure it doesn't fail if core project doesn't exist yet
+    restart: on-failure
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./static:/app/static
+      - ./media:/app/media
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
