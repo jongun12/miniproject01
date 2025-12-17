@@ -36,18 +36,15 @@ class CheckInView(views.APIView):
             except Course.DoesNotExist:
                 return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            # Simple simulation of Course Location (In real app, store in Course model)
-            # We assume course location is user's location for demo matching or fix it.
-            # For this demo, let's assume the request sends the "target" location or we match against cached course loc.
-            # But the prompt says "Course lat/lon vs Student GPS".
-            # I will assume Course model has lat/lon or I pass mock values here.
-            # I'll update Course model later or just hardcode a 'center' for demo.
-            # Let's assume (0,0) or pass in request to simulate "Course Location" logic if not in DB.
-            # Better: Add lat/lon to Course definition? Allowed but SoftDeleteModel is already made. 
-            # I will assume (37.5665, 126.9780) (Seoul) as course location.
-            course_lat, course_lon = 37.5665, 126.9780
+            # Retrieve Course (DB lookup is needed for FK relation in Attendance)
+            # Optimization: Course location is fetched via Redis inside verify_attendance
+            try:
+                course = Course.objects.get(id=course_id)
+            except Course.DoesNotExist:
+                return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
             
-            success, message = verify_attendance(request.user, course, code, lat, lon, course_lat, course_lon)
+            # Dynamic Verification
+            success, message = verify_attendance(request.user, course, code, lat, lon)
             
             if success:
                 return Response({"message": message}, status=status.HTTP_200_OK)
@@ -65,5 +62,11 @@ class GenerateQRView(views.APIView):
         except Course.DoesNotExist:
              return Response({"error": "Course not found or permission denied"}, status=status.HTTP_404_NOT_FOUND)
              
+        # Generate Code
         code, secret = generate_qr_token(course_id)
+        
+        # Cache Course Location for O(1) Access during class
+        from .services import cache_course_location
+        cache_course_location(course_id)
+        
         return Response({"code": code, "secret": secret, "valid_for": "30s"})

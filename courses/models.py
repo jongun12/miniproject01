@@ -21,6 +21,11 @@ class Course(SoftDeleteModel):
         related_name='courses',
         limit_choices_to={'role': 'PROFESSOR'}
     )
+    # Location Info for Geofencing
+    latitude = models.FloatField(help_text="Latitude of the classroom", null=True, blank=True)
+    longitude = models.FloatField(help_text="Longitude of the classroom", null=True, blank=True)
+    allowed_radius = models.IntegerField(default=50, help_text="Allowed radius in meters")
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

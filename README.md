@@ -4,17 +4,18 @@
 
 ## 🚀 주요 기능
 
-- **출석 추적**: 
-    - **지오펜싱**: 강의 장소 반경 50m 이내 학생 위치 검증 (`Haversine` 공식 사용).
-    - **QR/TOTP**: 보안 체크인을 위한 시간 기반 일회용 비밀번호 토큰 (`Redis` + `PyOTP` 사용).
-- **성적 분석**:
-    - 유연한 성적 세부 항목 저장을 위한 JSONB 사용.
-    - `Pandas`를 활용한 벡터화된 통계 분석 (평균, 표준편차, 최소/최대값).
-- **보안**:
-    - JWT 인증.
+- **출석 추적 (Attendance)**: 
+    - **동적 지오펜싱 (Dynamic Geofencing)**: 
+        - 강의실의 위도/경도(`latitude`, `longitude`)를 DB에 설정.
+        - `Redis` 캐싱을 통해 출석 체크 시 DB 부하 최소화 (O(1) 조회).
+        - 반경(`allowed_radius`) 내 학생 위치 검증.
+    - **QR/TOTP**: 보안 체크인을 위한 시간 기반 일회용 비밀번호 토큰.
+- **성적 분석 (Analytics)**:
+    - 유연한 성적 세부 항목(퀴즈, 중간, 기말 등)을 `JSONB`로 저장.
+    - `Pandas`를 활용한 벡터화된 통계 분석 (평균, 표준 편차 등).
+- **보안 (Security)**:
+    - JWT (SimpleJWT) 인증.
     - 역할 기반 접근 제어 (학생, 교수, 관리자).
-- **확장성**:
-    - Dockerized 마이크로서비스 아키텍처 (Django, Postgres, Redis, Celery, Nginx).
 
 ## 🛠 기술 스택
 
@@ -36,8 +37,11 @@
    docker-compose up --build
    ```
 
-2. **마이그레이션 실행** (최초 1회):
+2. **마이그레이션 실행**:
+   **중요**: `users` 앱의 마이그레이션이 먼저 적용되어야 할 수 있습니다.
    ```bash
+   # 혹시 오류가 난다면 users 먼저 실행
+   docker-compose exec web python manage.py migrate users
    docker-compose exec web python manage.py migrate
    ```
 
@@ -51,17 +55,10 @@
    - **Swagger 문서**: http://localhost:8000/api/schema/swagger-ui/
    - 관리자 패널: http://localhost:8000/admin/
 
-## 🧪 테스트 실행
-
-```bash
-docker-compose exec web pytest
-```
-
 ## 📂 프로젝트 구조
 
 - `core/`: 설정 및 구성 파일.
-- `users/`: 사용자 모델 및 인증.
-- `attendance/`: 지오펜싱 및 QR 출석 구현.
-- `grades/`: 성적 관리 및 Pandas 분석.
-- `courses/`: 강의 관리.
-# miniproject01
+- `users/`: 사용자 모델 및 인증 (Role: Student, Professor).
+- `attendance/`: **서비스 핵심**. 지오펜싱(Haversine), Redis 캐싱, QR 로직.
+- `grades/`: 성적 관리 및 Pandas 분석 서비스.
+- `courses/`: 강의 관리 및 Location 정보 포함.

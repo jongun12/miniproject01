@@ -30,11 +30,11 @@ def generate_qr_token(course_id):
     totp = pyotp.TOTP(secret, interval=30)
     return totp.now(), secret
 
-def verify_attendance(student, course, code, lat, lon, course_lat, course_lon):
+def verify_attendance(student, course, code, lat, lon):
     """
     Verifies attendance based on TOTP code and Geofencing (50m radius).
     """
-    # 1. Verify TOTP
+    # Retrieve secret
     key = f"attendance_secret:{course.id}"
     secret = r.get(key)
     if not secret:
@@ -47,13 +47,22 @@ def verify_attendance(student, course, code, lat, lon, course_lat, course_lon):
         return False, "Invalid or expired QR code."
 
     # 2. Verify Location (Geofencing)
+    # Optimization: Helper to get location from Redis or DB
+    target_lat, target_lon, allowed_radius = get_course_location(course.id)
+    
+    if target_lat is None or target_lon is None:
+         # Fallback if course has no location set (Optional: allow or fail)
+         # For strict attendance, we might fail.
+         # For now, if no location, maybe skip verify? Or fail.
+         return False, "Course location not configured."
+
     student_loc = (float(lat), float(lon))
-    course_loc = (float(course_lat), float(course_lon))
+    course_loc = (float(target_lat), float(target_lon))
     
     distance = haversine(student_loc, course_loc, unit=Unit.METERS)
     
-    if distance > 50:
-        return False, f"Location verification failed. Distance: {distance:.2f}m"
+    if distance > allowed_radius:
+        return False, f"Location verification failed. Distance: {distance:.2f}m (Allowed: {allowed_radius}m)"
 
     # 3. Mark Attendance
     Attendance.objects.create(
@@ -64,3 +73,48 @@ def verify_attendance(student, course, code, lat, lon, course_lat, course_lon):
     )
     
     return True, "Attendance valid."
+
+def cache_course_location(course_id):
+    """
+    Caches course location in Redis for 1 hour.
+    O(1) access during attendance burst.
+    """
+    from courses.models import Course
+    try:
+        course = Course.objects.get(id=course_id)
+        if course.latitude and course.longitude:
+            # Store as hash or simple string. JSON is easy.
+            import json
+            data = {
+                'lat': course.latitude,
+                'lon': course.longitude,
+                'radius': course.allowed_radius
+            }
+            r.setex(f"course_loc:{course_id}", 3600, json.dumps(data))
+    except Course.DoesNotExist:
+        pass
+
+def get_course_location(course_id):
+    """
+    Returns (lat, lon, radius).
+    Tries Redis first, then DB.
+    """
+    import json
+    # 1. Try Redis
+    data = r.get(f"course_loc:{course_id}")
+    if data:
+        d = json.loads(data)
+        return d['lat'], d['lon'], d['radius']
+    
+    # 2. Fallback to DB
+    from courses.models import Course
+    try:
+        course = Course.objects.get(id=course_id)
+        if course.latitude and course.longitude:
+            # Cache it now for future
+            cache_course_location(course_id)
+            return course.latitude, course.longitude, course.allowed_radius
+    except Course.DoesNotExist:
+        pass
+        
+    return None, None, 50
