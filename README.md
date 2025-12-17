@@ -55,6 +55,14 @@
    - **Swagger 문서**: http://localhost:8000/api/schema/swagger-ui/
    - 관리자 패널: http://localhost:8000/admin/
 
+5. **프론트엔드 실행**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   # 접속: http://localhost:5173
+   ```
+
 ## 📂 프로젝트 구조
 
 - `core/`: 설정 및 구성 파일.

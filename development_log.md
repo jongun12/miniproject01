@@ -1,48 +1,38 @@
 # 개발 일지 - 지능형 LMS (Intelligent LMS)
 
 **날짜:** 2025-12-17
-**상태:** 백엔드 알파 (Backend Alpha) / 핵심 로직 고도화 완료
+**상태:** 베타 (Beta) / 풀스택 구현 완료 (Backend + Frontend)
 
 ## 1. 개발 현황
 
-### ✅ 개발 완료 (백엔드 및 인프라)
-- **인프라 (Infrastructure)**: 
-    - Docker 환경 구축 (Web, DB, Redis, Celery, Nginx).
-    - 데이터베이스 마이그레이션 구성 완료 (`admin` vs `users` 의존성 문제 해결).
-- **핵심 설정 (Core Configuration)**:
-    - Django 설정, DRF 프레임워크, JWT 인증, Swagger API 문서화.
-- **사용자 관리 (`users`)**:
-    - 커스텀 유저 모델 (학생, 교수, 관리자). 역할 기반 권한 제어(RBAC) 구현.
-- **출석 관리 (`attendance`)**:
-    - **동적 지오펜싱 (Dynamic Geofencing)**: 
-        - `Course` 모델에 위도, 경도, 허용 반경 필드 추가.
-        - 하드코딩된 좌표를 제거하고 DB에서 동적으로 위치를 조회하도록 로직 변경.
-        - **Redis 캐싱**: 출석 체크 시 DB 부하를 막기 위해 강의실 위치 정보를 1시간 동안 Redis에 캐싱 (O(1) 조회 속도).
-    - **TOTP/QR 로직**: Redis와 PyOTP를 이용한 1회용 QR 코드 생성 및 검증.
-- **성적 관리 (`grades`)**:
-    - JSONB를 활용한 유연한 성적 세부 항목 저장.
-    - **Pandas**를 이용한 벡터화된 성적 통계 분석 (평균, 표준편차 등).
-- **강의 관리 (`courses`)**:
-    - 강의 생성 및 소프트 삭제(Soft Deletion) 구현.
+### ✅ 개발 완료 (Full Stack)
+- **백엔드 (Backend & Infrastructure)**:
+    - Docker 기반 마이크로서비스 (Django, Redis, Celery, Nginx).
+    - **지오펜싱(Geofencing)** 출석 로직 (DB 기반 동적 좌표 + Redis 캐싱).
+    - Pandas 성적 분석 및 JWT 인증 시스템.
+- **프론트엔드 (Frontend)**:
+    - **기술 스택**: React 18, Vite, TypeScript, Tailwind CSS.
+    - **기능 구현**:
+        - **인증(Auth)**: 로그인 UI, JWT 토큰 관리 (`Zustand`), Protected Routes.
+        - **대시보드(Dashboard)**: Recharts를 활용한 데이터 시각화 (출석률, 성적).
+        - **강의 관리(Course Manager)**: 강의 목록 조회 및 생성, 모의 지도(Mock Map)를 이용한 좌표 설정 UI.
+    - **연동**: Vite Proxy 설정을 통해 백엔드 API와 CORS 없이 통신.
 
-### 🚧 미완료 / TODO 리스트 (2단계 - Phase 2)
-- **프론트엔드 (Frontend)** - *높은 우선순위*:
-    - [ ] React + Vite + TypeScript 프로젝트 초기화.
-    - [ ] 상태 관리 설정 (Zustand + React Query).
-    - [ ] 대시보드(차트) 및 강의실 관리자(지도 API 연동) 구현.
-- **테스트 (QA)**:
-    - [ ] `tests/test_users.py`: 인증 및 권한 테스트.
-    - [ ] `tests/test_grades.py`: 성적 경계값 분석 및 계산 로직 검증.
-    - [ ] 부하 테스트: 100명 이상의 동시 접속 시뮬레이션.
-- **데브옵스 (DevOps)**:
-    - [ ] Gunicorn 튜닝 (워커 수 조정).
-    - [ ] Nginx 최적화 (Client Body Size, Gzip 설정).
-    - [ ] CI/CD 파이프라인 구축.
+### 🚧 미완료 / TODO 리스트 (3단계 - Phase 3)
+- **테스트 (QA Expansion)**:
+    - [ ] 백엔드: `tests/test_users.py`, `tests/test_grades.py` 추가 필요.
+    - [ ] 프론트엔드: Vitest를 이용한 컴포넌트 단위 테스트.
+    - [ ] 통합 테스트: 로그인부터 출석 체크까지의 E2E 시나리오 검증.
+- **배포 최적화 (DevOps)**:
+    - [ ] 프론트엔드 빌드(`npm run build`) 및 Nginx 서빙 설정.
+    - [ ] 프로덕션용 `gunicorn` 및 `docker-compose.prod.yml` 구성.
 
 ## 2. 일일 개발 저널 (Daily Journal)
-**2025-12-17 (심야)**:  
-- **기능 구현**: 동적 지오펜싱(Dynamic Geofencing) 로직을 완성했습니다. 기존의 하드코딩된 좌표 방식을 제거하고 DB 연동 방식으로 변경했습니다.
-- **이슈 해결**: `ProgrammingError: relation "users_user" does not exist` 오류 해결.
-    - *원인*: `users` 앱의 마이그레이션 파일이 없는데 `admin` 앱이 이를 참조하여 발생.
-    - *해결*: `makemigrations users`를 수동으로 실행하고 가장 먼저 적용하여 의존성 순환 문제를 해결함.
-- **최적화**: 출석 체크 트래픽 폭주에 대비하여, 강의실 위치 정보를 Redis에 캐싱하는 로직을 추가했습니다.
+**2025-12-17 (심야 - Frontend Sprint)**:  
+- **프론트엔드 구축**: Vite + React 기반으로 프로젝트를 초기화하고 'Rounded Soft' 디자인 시스템을 적용했습니다.
+- **기능 통합**: Django 백엔드와 React 프론트엔드를 연동했습니다. 
+    - Axios 인터셉터를 설정하여 JWT 토큰을 자동으로 헤더에 포함하도록 구현했습니다.
+    - 강의 관리 페이지에서 새로운 강의를 생성할 때, 지도 UI(Mock Map)를 통해 위도/경도를 직관적으로 입력받도록 했습니다.
+- **이슈 해결**:
+    - **Tailwind CSS 버전 충돌**: `v4` 버전이 설치되어 PostCSS 설정과 호환되지 않는 문제 발생. `v3.4.17`로 다운그레이드하여 해결.
+    - **PowerShell 실행 권한**: `npm` 실행 시 `PSSecurityException` 발생. `Set-ExecutionPolicy`로 해결 권장.

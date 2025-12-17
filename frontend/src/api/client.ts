@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const client = axios.create({
-    baseURL: 'http://localhost:8000/api', // DEV URL
+    baseURL: '/api', // Use Vite Proxy
     headers: {
         'Content-Type': 'application/json',
     },
