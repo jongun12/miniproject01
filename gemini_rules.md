@@ -8,21 +8,26 @@ This file contains context and rules for AI assistants continuing work on the In
     - `attendance/services.py`: Handles Geofencing (Haversine) & TOTP. **Redis Caching** for `course_location`.
 - **Data Models**:
     - `Course`: Stores location (`latitude`, `longitude`).
+    - `CourseSchedule`: Stores weekly timing. Use `IntegerChoices` for days (0=Mon, 6=Sun) to match Python `datetime`.
     - Use `SoftDeleteModel` for archiving.
-- **Docker**: Always use `docker-compose exec web <command>` for Django commands.
+- **Docker & Migrations (CRITICAL)**: 
+    - Migrations run locally (`python manage.py migrate`) do NOT affect the Docker container's DB volume.
+    - **Always** run migrations inside the container: `docker-compose exec web python manage.py migrate`.
+- **Serializers**:
+    - Use `SerializerMethodField` for related object properties (like `professor_name`) to prevent 500 crashes if data is missing/corrupt.
+    - Override `create()` for nested writes (e.g., creating Schedules within Course creation).
 
 ## 2. Architecture & Patterns (Frontend)
-- **Tech Stack**: React 18, Vite, TypeScript, Tailwind CSS (Must use v3.x, NOT v4).
+- **Framework**: React 18, Vite, TypeScript, Tailwind CSS (v3.x).
 - **State Management**:
-    - **Server State**: Use `@tanstack/react-query` for all API calls (fetching/mutating). Do not use `useEffect` for data fetching if possible.
-    - **Client State**: Use `Zustand` (`store/authStore.ts`) for global UI state like Auth Tokens or Sidebar toggle.
-- **Styling**:
-    - Use Tailwind CSS utility classes.
-    - Design System: 'Rounded Soft' theme (`rounded-xl`, `shadow-soft`).
-- **Directory Structure**:
-    - `src/components`: Reusable UI components (e.g., `Layout`, `MapPicker`).
-    - `src/pages`: Page components (e.g., `Dashboard`, `Courses`).
-    - `src/api`: Axios setup (`client.ts`).
+    - **Server State**: `@tanstack/react-query` is MANDATORY for API calls. Keys must be consistent (e.g., `['courses']`, `['dashboard-stats']`).
+    - **Client State**: `Zustand` (`store/authStore`) for Auth.
+- **Design System**:
+    - Use 'Rounded Soft' theme (`rounded-xl`, `shadow-soft`, borders).
+    - Role-Based Rendering: Use `user.role` check inside components or `Dashboard.tsx` switch-case.
+- **Hooks Rules**:
+    - **NEVER** place Hooks (`useQuery`, `useState`) inside conditionals (`if`, `switch`).
+    - Always call all Hooks at the top level, then conditionally render the *return* JSX.
 
 ## 3. Dynamic Geofencing & caching
 - **Workflow**:
@@ -30,6 +35,7 @@ This file contains context and rules for AI assistants continuing work on the In
     2. QR Generation -> Cache warm-up in Redis.
     3. Attendance Check -> Redis lookup (O(1)).
 
-## 4. Next Immediate Tasks (QA Focus)
-1. **Tests**: Create `test_users.py` (Auth) and `test_grades.py` (Pandas Calc).
-2. **E2E Test**: Verify the flow [Login -> Dashboard -> Create Course].
+## 4. Next Tasks (Prioritized)
+1. **User Approval**: Implement Backend logic for Admin to approve/reject `is_active=False` users.
+2. **Student Enrollment**: Add "Register for Course" UI for students using the code.
+3. **Tests**: Add backend tests now that Models are stable.

@@ -15,3 +15,9 @@ class CourseAdmin(admin.ModelAdmin):
 class EnrollmentAdmin(admin.ModelAdmin):
     list_display = ('student', 'course', 'is_active', 'enrolled_at')
     list_filter = ('is_active',)
+
+from .models import CourseSchedule
+@admin.register(CourseSchedule)
+class CourseScheduleAdmin(admin.ModelAdmin):
+    list_display = ('course', 'day_of_week', 'start_time', 'end_time')
+    list_filter = ('day_of_week',)

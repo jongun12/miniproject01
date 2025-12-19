@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Search, MapPin, Users, MoreHorizontal } from 'lucide-react';
+import { Plus, MapPin, Users, MoreHorizontal } from 'lucide-react';
 import MapPicker from '../components/MapPicker';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '../api/client';
+import { useAuthStore } from '../store/authStore';
 
 interface Course {
     id: number;
@@ -17,16 +18,35 @@ interface Course {
 const Courses: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newCourse, setNewCourse] = useState({ name: '', code: '', lat: 37.5665, lon: 126.9780 });
+    // Schedule State
+    const [schedules, setSchedules] = useState<{ day_of_week: number, start_time: string, end_time: string }[]>([]);
+    const [tempSchedule, setTempSchedule] = useState({ day_of_week: 0, start_time: '09:00', end_time: '10:30' });
+
     const queryClient = useQueryClient();
 
+    const addSchedule = () => {
+        setSchedules([...schedules, tempSchedule]);
+    };
+
+    const removeSchedule = (index: number) => {
+        setSchedules(schedules.filter((_, i) => i !== index));
+    };
+
+    // Auth Store Access
+    const user = useAuthStore((state) => state.user);
+    const isAdmin = user?.role === 'ADMIN';
+
     // Fetch Courses
-    const { data: courses, isLoading } = useQuery({
+    const { data: courses, isLoading, isError, error } = useQuery({
         queryKey: ['courses'],
         queryFn: async () => {
-            // Temporary: fetching /courses/ API. 
-            // Ensure your backend has a CourseViewSet registered at /api/courses/
             const res = await client.get('/courses/');
-            return res.data as Course[];
+            const data = res.data;
+            if (Array.isArray(data)) return data as Course[];
+            if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) {
+                return (data as any).results as Course[];
+            }
+            return [];
         }
     });
 
@@ -38,13 +58,16 @@ const Courses: React.FC = () => {
                 ...data,
                 latitude: data.lat,
                 longitude: data.lon,
-                allowed_radius: 50 // default
+                allowed_radius: 50, // default
+                schedules: schedules // Include schedules
             });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['courses'] });
             setIsModalOpen(false);
+            setIsModalOpen(false);
             setNewCourse({ name: '', code: '', lat: 37.5665, lon: 126.9780 });
+            setSchedules([]); // Reset schedules
         }
     });
 
@@ -53,7 +76,18 @@ const Courses: React.FC = () => {
         createMutation.mutate(newCourse);
     };
 
-    if (isLoading) return <div className="p-8 text-center text-gray-500">Loading courses...</div>;
+    if (isLoading) return (
+        <div className="flex justify-center items-center h-96">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+    );
+
+    if (isError) return (
+        <div className="p-8 text-center text-red-500 bg-red-50 rounded-xl m-6">
+            <h3 className="font-bold mb-2">데이터를 불러오지 못했습니다.</h3>
+            <p className="text-sm">{(error as any)?.message || '알 수 없는 오류가 발생했습니다.'}</p>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
@@ -61,42 +95,62 @@ const Courses: React.FC = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 font-sans">강의 관리</h1>
-                    <p className="text-gray-500 text-sm mt-1">등록된 강의 목록을 관리하고 출석 위치를 설정합니다.</p>
+                    <p className="text-gray-500 text-sm mt-1">
+                        {isAdmin ? '강의를 생성하고 관리합니다.' : '수강 중인 강의 목록입니다.'}
+                    </p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm active:scale-95"
-                >
-                    <Plus size={18} />
-                    <span>새 강의 등록</span>
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm active:scale-95"
+                    >
+                        <Plus size={18} />
+                        <span>새 강의 등록</span>
+                    </button>
+                )}
             </div>
 
             {/* Course List Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses?.map((course) => (
-                    <div key={course.id} className="bg-white p-6 rounded-xl shadow-soft border border-gray-100 group hover:shadow-md transition-all">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                <Users size={20} />
+            {courses && courses.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {courses.map((course) => (
+                        <div key={course.id} className="bg-white p-6 rounded-xl shadow-soft border border-gray-100 group hover:shadow-md transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                    <Users size={20} />
+                                </div>
+                                {isAdmin && (
+                                    <button className="text-gray-400 hover:text-gray-600">
+                                        <MoreHorizontal size={20} />
+                                    </button>
+                                )}
                             </div>
-                            <button className="text-gray-400 hover:text-gray-600">
-                                <MoreHorizontal size={20} />
-                            </button>
-                        </div>
+                            {/* ... (Rest of card content) */}
+                            <h3 className="text-lg font-bold text-gray-900 mb-1">{course.name}</h3>
+                            <p className="text-sm text-gray-400 font-mono mb-6">{course.code}</p>
 
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">{course.name}</h3>
-                        <p className="text-sm text-gray-400 font-mono mb-6">{course.code}</p>
-
-                        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
-                            <MapPin size={14} className="text-gray-400" />
-                            <span className="font-mono truncate">
-                                {course.latitude?.toFixed(4)}, {course.longitude?.toFixed(4)}
-                            </span>
+                            <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-lg">
+                                <MapPin size={14} className="text-gray-400" />
+                                <span className="font-mono truncate">
+                                    {course.latitude?.toFixed(4)}, {course.longitude?.toFixed(4)}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500 mb-4">등록된 강의가 없습니다.</p>
+                    {isAdmin && (
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="text-blue-600 font-medium hover:underline"
+                        >
+                            첫 번째 강의를 등록해보세요
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Create Modal */}
             {isModalOpen && (
@@ -142,6 +196,69 @@ const Courses: React.FC = () => {
                                             onLocationSelect={(lat, lon) => setNewCourse({ ...newCourse, lat, lon })}
                                         />
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Schedule Section */}
+                            <div className="px-6 pb-6 border-b border-gray-100">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">강의 시간표 추가</label>
+                                <div className="flex gap-2 mb-3 items-end">
+                                    <div className="flex-1">
+                                        <span className="text-xs text-gray-500 block mb-1">요일</span>
+                                        <select
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
+                                            value={tempSchedule.day_of_week}
+                                            onChange={e => setTempSchedule({ ...tempSchedule, day_of_week: Number(e.target.value) })}
+                                        >
+                                            <option value={0}>월요일</option>
+                                            <option value={1}>화요일</option>
+                                            <option value={2}>수요일</option>
+                                            <option value={3}>목요일</option>
+                                            <option value={4}>금요일</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="text-xs text-gray-500 block mb-1">시작</span>
+                                        <input
+                                            type="time"
+                                            value={tempSchedule.start_time}
+                                            onChange={e => setTempSchedule({ ...tempSchedule, start_time: e.target.value })}
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="text-xs text-gray-500 block mb-1">종료</span>
+                                        <input
+                                            type="time"
+                                            value={tempSchedule.end_time}
+                                            onChange={e => setTempSchedule({ ...tempSchedule, end_time: e.target.value })}
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-sm"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={addSchedule}
+                                        className="bg-gray-100 p-2 rounded-lg hover:bg-gray-200 text-gray-600 mb-[1px]"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 min-h-[40px] p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    {schedules.length === 0 && <span className="text-xs text-gray-400">추가된 시간표가 없습니다.</span>}
+                                    {schedules.map((s, i) => (
+                                        <span key={i} className="bg-white border border-blue-100 text-blue-600 text-xs px-2 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
+                                            <span className="font-bold">{['월', '화', '수', '목', '금'][s.day_of_week]}</span>
+                                            <span>{s.start_time} - {s.end_time}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeSchedule(i)}
+                                                className="text-gray-400 hover:text-red-500"
+                                            >
+                                                ×
+                                            </button>
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
 

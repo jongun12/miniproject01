@@ -46,3 +46,22 @@ class Enrollment(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.student} -> {self.course}"
+
+class CourseSchedule(models.Model):
+    class DayOfWeek(models.IntegerChoices):
+        MONDAY = 0, 'Monday'
+        TUESDAY = 1, 'Tuesday'
+        WEDNESDAY = 2, 'Wednesday'
+        THURSDAY = 3, 'Thursday'
+        FRIDAY = 4, 'Friday'
+        SATURDAY = 5, 'Saturday'
+        SUNDAY = 6, 'Sunday'
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='schedules')
+    day_of_week = models.IntegerField(choices=DayOfWeek.choices)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.course.name} ({self.get_day_of_week_display()} {self.start_time}-{self.end_time})"
+

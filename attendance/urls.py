@@ -8,5 +8,5 @@ router.register(r'attendance', AttendanceViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('attendance/check-in/', CheckInView.as_view(), name='check-in'),
-    path('attendance/qr/<int:course_id>/', GenerateQRView.as_view(), name='generate-qr'),
+    path('attendance/generate-qr/<int:course_id>/', GenerateQRView.as_view(), name='generate-qr'),
 ]

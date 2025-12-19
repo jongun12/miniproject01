@@ -4,6 +4,21 @@ class IsProfessor(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.is_professor())
 
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_admin())
+
+class IsCourseOwner(permissions.BasePermission):
+    """
+    Custom permission to only allow professors to edit their own courses.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Admin has full access
+        if request.user.is_admin():
+            return True
+        # Professor must match the course professor
+        return obj.professor == request.user
+
 class IsStudent(permissions.BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and request.user.is_student())

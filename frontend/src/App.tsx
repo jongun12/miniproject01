@@ -4,8 +4,10 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Courses from './pages/Courses';
+import AttendanceStudent from './pages/AttendanceStudent';
+import AttendanceProfessor from './pages/AttendanceProfessor';
+import Profile from './pages/Profile';
 import { useAuthStore } from './store/authStore';
-
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = useAuthStore((state) => state.token);
@@ -14,7 +16,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   return <>{children}</>;
 };
-
 function App() {
   return (
     <Router>
@@ -29,7 +30,9 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/courses" element={<Courses />} />
-                  <Route path="/profile" element={<div className="text-gray-500">프로필 페이지 준비중...</div>} />
+                  <Route path="/attendance/student" element={<AttendanceStudent />} />
+                  <Route path="/attendance/professor" element={<AttendanceProfessor />} />
+                  <Route path="/profile" element={<Profile />} />
                 </Routes>
               </Layout>
             </ProtectedRoute>

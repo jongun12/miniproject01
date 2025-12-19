@@ -24,19 +24,20 @@ const Login: React.FC = () => {
                 password,
             });
 
-            // Assuming Backend returns { access: "...", refresh: "..." }
-            // We need to fetch user profile after token to get role/name
-            // Or decode token. For MVP, let's assume we decode or fetch /users/me
-
             const token = response.data.access;
 
-            // Temporary: Fetch user info (Adjust endpoint as per your backend)
-            // Since backend doesn't have /users/me documented in previous steps, 
-            // we might need to rely on what we have or just mock user data for now if backend isn't ready.
-            // Wait, UserViewSet usually has retrieve. but /users/me is common pattern.
-            // Let's generic fetch or just store token + dummy user for now if we hit 404.
+            // 1. Set token in header for subsequent requests
+            client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-            setAuth(token, { username, role: 'STUDENT' }); // Mock role for now until /me implemented
+            // 2. Fetch User Profile
+            const meRes = await client.get('/users/me/', {
+                headers: { Authorization: `Bearer ${token}` } // Explicitly set for safety
+            });
+
+            const { role, username: realUsername } = meRes.data;
+
+            // 3. Update Store with Real Data
+            setAuth(token, { username: realUsername, role });
             navigate('/');
 
         } catch (err: any) {

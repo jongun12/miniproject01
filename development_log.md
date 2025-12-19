@@ -36,3 +36,23 @@
 - **이슈 해결**:
     - **Tailwind CSS 버전 충돌**: `v4` 버전이 설치되어 PostCSS 설정과 호환되지 않는 문제 발생. `v3.4.17`로 다운그레이드하여 해결.
     - **PowerShell 실행 권한**: `npm` 실행 시 `PSSecurityException` 발생. `Set-ExecutionPolicy`로 해결 권장.
+
+**2025-12-19 (Backend/Frontend Integration Sprint)**:
+- **역할 기반 대시보드(Role-Based Dashboard)**:
+    - 사용자 권한(Admin, Professor, Student)에 따라 대시보드 UI를 동적으로 분기 처리.
+    - **교수**: '오늘의 강의 일정' (DB 연동), 채점 현황 위젯.
+    - **학생**: '주간 시간표' (Grid Layout), 출석률 그래프, 마감 임박 과제 알림.
+    - **관리자**: 가입 승인 대기 목록 관리 기능.
+- **강의 시간표 관리(Course Schedule Management)**:
+    - **DB 설계**: `CourseSchedule` 모델 추가 (요일, 시작/종료 시간). `Course` 모델과 1:N 관계.
+    - **기능 구현**:
+        - Admin 패널 및 API(`CourseSerializer`)에서 시간표 생성/조회 지원.
+        - 프론트엔드 '강의 생성' 모달에 요일/시간 추가 UI 구현.
+- **출석 시스템 고도화**:
+    - **QR 코드**: 30초 자동 리프레시 및 시각적 카운트다운 타이머 구현 (`AttendanceProfessor.tsx`).
+    - React Hooks 규칙 준수(`Rendered more hooks...` 에러)를 위해 컴포넌트 구조 리팩토링.
+- **주요 버그 수정**:
+    - **500 Internal Server Error**: `CourseViewSet`에서 필터링 시 `ProgrammingError` 발생.
+    - **원인**: 로컬에서만 마이그레이션을 수행하고 Docker 컨테이너에는 반영하지 않음.
+    - **해결**: `docker-compose exec web python manage.py migrate` 실행으로 해결.
+    - **개선**: Serializer에서 `professor` 접근 시 `SerializerMethodField`로 방어 코드 작성하여 안정성 확보.
