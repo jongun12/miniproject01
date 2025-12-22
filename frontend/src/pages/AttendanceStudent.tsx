@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 import { MapPin, QrCode, AlertCircle, CheckCircle2 } from 'lucide-react';
 
@@ -50,23 +50,39 @@ const AttendanceStudent: React.FC = () => {
         );
     };
 
+    // Use enrolled courses for dropdown
+    const { data: courses } = useQuery({
+        queryKey: ['my-courses'],
+        queryFn: async () => {
+            const res = await client.get('/courses/');
+            // Handle pagination if present
+            const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
+            return list;
+        }
+    });
+
     return (
         <div className="max-w-md mx-auto mt-10 space-y-8">
             <div className="text-center">
                 <h1 className="text-2xl font-bold text-gray-900">Attendance Check-In</h1>
-                <p className="text-gray-500 mt-2">Enter the provided code and verify your location.</p>
+                <p className="text-gray-500 mt-2">Select a course and enter the code to verify attendance.</p>
             </div>
 
             <div className="bg-white p-8 rounded-2xl shadow-soft border border-gray-100 space-y-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Course ID</label>
-                    <input
-                        type="number"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Course</label>
+                    <select
                         value={courseId}
                         onChange={(e) => setCourseId(e.target.value)}
-                        className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g. 1"
-                    />
+                        className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                        <option value="">-- Choose a Course --</option>
+                        {courses?.map((course: any) => (
+                            <option key={course.id} value={course.id}>
+                                {course.name} ({course.code})
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div>

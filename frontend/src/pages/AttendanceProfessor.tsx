@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import client from '../api/client';
 import { RefreshCw, Clock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -9,6 +9,52 @@ const AttendanceProfessor: React.FC = () => {
     const [selectedCourseId, setSelectedCourseId] = useState<string>('');
     const [generatedData, setGeneratedData] = useState<{ code: string, valid_for: string } | null>(null);
     const [timeLeft, setTimeLeft] = useState<number>(30); // Countdown state
+
+    // Manual Attendance Hooks (Moved to top)
+    const [sheetData, setSheetData] = useState<any[]>([]);
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+    const { refetch: fetchSheet } = useQuery({
+        queryKey: ['attendance-sheet', selectedCourseId, selectedDate],
+        queryFn: async () => {
+            if (!selectedCourseId) return [];
+            const res = await client.get(`/attendance/sheet/?course_id=${selectedCourseId}&date=${selectedDate}`);
+            setSheetData(res.data);
+            return res.data;
+        },
+        enabled: !!selectedCourseId
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async (data: { student_id: number, status: string }) => {
+            return await client.post('/attendance/update_status/', {
+                course_id: selectedCourseId,
+                date: selectedDate,
+                ...data
+            });
+        },
+        onSuccess: () => fetchSheet()
+    });
+
+    const batchAbsentMutation = useMutation({
+        mutationFn: async () => {
+            return await client.post('/attendance/batch_absent/', {
+                course_id: selectedCourseId,
+                date: selectedDate
+            });
+        },
+        onSuccess: (data) => {
+            alert(data.data.message);
+            fetchSheet();
+        }
+    });
+
+    // Auto-fetch sheet when course/date changes
+    useEffect(() => {
+        if (selectedCourseId) {
+            fetchSheet();
+        }
+    }, [selectedCourseId, selectedDate, fetchSheet]);
 
     // 2. Data Fetching Hooks
     const { data: courses, isLoading, isError, error } = useQuery({
@@ -82,12 +128,15 @@ const AttendanceProfessor: React.FC = () => {
         </div>
     );
 
+
+
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 font-sans">출석 관리 (교수용)</h1>
-                    <p className="text-gray-500 text-sm mt-1">학생들이 출석할 수 있도록 인증 코드를 생성합니다.</p>
+                    <p className="text-gray-500 text-sm mt-1">학생들이 출석할 수 있도록 인증 코드를 생성하고, 수동으로 상태를 변경할 수 있습니다.</p>
                 </div>
             </div>
 
@@ -161,6 +210,78 @@ const AttendanceProfessor: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Manual Attendance Table */}
+            {selectedCourseId && (
+                <div className="bg-white p-8 rounded-2xl shadow-soft border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            수강생 출석부
+                            <input
+                                type="date"
+                                className="text-sm font-normal border border-gray-200 rounded p-1"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                            />
+                        </h2>
+                        <button
+                            onClick={() => batchAbsentMutation.mutate()}
+                            className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200"
+                        >
+                            미출석 인원 전체 결석 처리
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-gray-100 text-gray-400 text-sm">
+                                    <th className="py-3">이름 (아이디)</th>
+                                    <th className="py-3 text-center">상태</th>
+                                    <th className="py-3 text-right">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {sheetData.map((student) => (
+                                    <tr key={student.student_id} className="group hover:bg-gray-50 transition-colors">
+                                        <td className="py-4 font-medium text-gray-700">
+                                            {student.student_name}
+                                        </td>
+                                        <td className="py-4 text-center">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold
+                                                ${student.status === 'PRESENT' ? 'bg-green-100 text-green-700' :
+                                                    student.status === 'LATE' ? 'bg-yellow-100 text-yellow-700' :
+                                                        student.status === 'ABSENT' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`
+                                            }>
+                                                {student.status === 'NONE' ? '미처리' : student.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 text-right">
+                                            <div className="flex gap-1 justify-end">
+                                                <button
+                                                    onClick={() => updateMutation.mutate({ student_id: student.student_id, status: 'PRESENT' })}
+                                                    className={`px-3 py-1 rounded text-xs border ${student.status === 'PRESENT' ? 'bg-green-500 text-white border-green-500' : 'border-gray-200 hover:bg-gray-100'}`}
+                                                >출석</button>
+                                                <button
+                                                    onClick={() => updateMutation.mutate({ student_id: student.student_id, status: 'LATE' })}
+                                                    className={`px-3 py-1 rounded text-xs border ${student.status === 'LATE' ? 'bg-yellow-500 text-white border-yellow-500' : 'border-gray-200 hover:bg-gray-100'}`}
+                                                >지각</button>
+                                                <button
+                                                    onClick={() => updateMutation.mutate({ student_id: student.student_id, status: 'ABSENT' })}
+                                                    className={`px-3 py-1 rounded text-xs border ${student.status === 'ABSENT' ? 'bg-red-500 text-white border-red-500' : 'border-gray-200 hover:bg-gray-100'}`}
+                                                >결석</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {sheetData.length === 0 && (
+                            <p className="text-center text-gray-400 py-8">수강생이 없습니다.</p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

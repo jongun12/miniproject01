@@ -17,15 +17,26 @@ const Dashboard: React.FC = () => {
         queryKey: ['dashboard-stats'],
         queryFn: async () => {
             try {
-                const [gradeRes, attendanceRes, courseRes] = await Promise.all([
+                const [gradeRes, attendanceRes, courseRes, userStatsRes, attendanceStatsRes] = await Promise.all([
                     client.get('/grades/'),
                     client.get('/attendance/'),
-                    client.get('/courses/')
+                    client.get('/courses/'),
+                    role === 'ADMIN' ? client.get('/users/stats/') : Promise.resolve({ data: null }),
+                    role === 'STUDENT' ? client.get('/attendance/stats/') : Promise.resolve({ data: null })
                 ]);
+                // Helper to handle pagination or direct array
+                const getList = (res: any) => {
+                    if (Array.isArray(res.data)) return res.data;
+                    if (res.data && Array.isArray(res.data.results)) return res.data.results;
+                    return [];
+                };
+
                 return {
                     grades: gradeRes.data,
                     attendance: attendanceRes.data,
-                    courses: courseRes.data // Contains embedded schedules
+                    courses: getList(courseRes), // Handle potential pagination
+                    userStats: userStatsRes.data,
+                    attendanceStats: attendanceStatsRes.data
                 };
             } catch (e) {
                 return null;
@@ -44,10 +55,15 @@ const Dashboard: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">관리자 대시보드</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard icon={<Users />} title="전체 재학생" value="2,450" color="bg-blue-100 text-blue-600" />
+                <StatCard icon={<Users />} title="전체 재학생" value={stats?.userStats?.student_count || 0} color="bg-blue-100 text-blue-600" />
                 <StatCard icon={<BookOpen />} title="개설된 강의" value={stats?.courses?.length || 0} color="bg-green-100 text-green-600" />
                 <StatCard icon={<Server />} title="서버 상태" value="정상" subValue="Uptime: 99.9%" color="bg-indigo-100 text-indigo-600" />
-                <StatCard icon={<Activity />} title="시스템 부하" value="12%" color="bg-orange-100 text-orange-600" />
+                <StatCard
+                    icon={<CheckCircle />}
+                    title="실시간 출석률"
+                    value={`${stats?.attendanceStats?.attendance_rate || 0}%`}
+                    color="bg-green-100 text-green-600"
+                />
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-soft border border-gray-100">
@@ -151,7 +167,7 @@ const Dashboard: React.FC = () => {
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
                         <p className="text-blue-100 text-sm mb-1">실시간 출석률</p>
-                        <h3 className="text-3xl font-bold">92.5%</h3>
+                        <h3 className="text-3xl font-bold">{stats?.attendanceStats?.attendance_rate || 0}%</h3>
                         <span className="inline-block mt-2 px-2 py-1 bg-blue-400 bg-opacity-30 rounded text-xs">안정권입니다</span>
                     </div>
                     <CheckCircle className="absolute right-4 bottom-4 text-blue-400 opacity-20" size={80} />
